@@ -30,7 +30,7 @@ def run_python_file(working_directory, file_path, args=None):
         if not complete_process.stdout and not complete_process.stderr:
             string_output += " No output produced"
         else:
-            string_output += f'STDOUT: {complete_process.stdout} STDERR: {complete_process.stderr}'
+            string_output += f'STDOUT: {complete_process.stdout}STDERR: {complete_process.stderr}'
         
         return string_output
 
