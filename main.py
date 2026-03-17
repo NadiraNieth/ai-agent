@@ -1,5 +1,6 @@
 import os
 import argparse
+import sys
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -23,45 +24,58 @@ def main():
     args = parser.parse_args()
     
     messages = [types.Content(role="user", parts=[types.Part(text=args.user_prompt)])]
-
-    response = client.models.generate_content(
-    model='gemini-2.5-flash', contents=messages, 
-    config=types.GenerateContentConfig(tools=[available_functions], system_instruction=system_prompt, temperature=0),)
-
-    prompt_tokens = response.usage_metadata.prompt_token_count
-    response_tokens = response.usage_metadata.candidates_token_count
-    user_prompt = args.user_prompt
-
-    if response.usage_metadata == None:
-        raise RuntimeError("API request failed")
-
-    if args.verbose == True:
-        print(f"User prompt: {user_prompt}")
-        print(f"Prompt tokens: {prompt_tokens}")
-        print(f"Response tokens: {response_tokens}")
     
-    
-    function_responses = []
-    if response.function_calls:
-        for function_call in response.function_calls:
-            #print (f"Calling function: {function_call.name}({function_call.args})")
-            
-            function_call_result = call_function(function_call, args.verbose)
-            if not function_call_result.parts:
-                raise Exception
-            if not function_call_result.parts[0].function_response:
-                raise Exception
-            if not function_call_result.parts[0].function_response.response:
-                raise Exception
-            function_responses.append(function_call_result.parts[0])
-            if args.verbose == True:
-                print(f"-> {function_call_result.parts[0].function_response.response}")
-            
-            
-    else:
-        print("Response:")
-        print(response.text)
-    
+    for _ in range(20):
+
+        response = client.models.generate_content(
+        model='gemini-2.5-flash', contents=messages, 
+        config=types.GenerateContentConfig(tools=[available_functions], system_instruction=system_prompt, temperature=0),)
+
+        user_prompt = args.user_prompt
+
+        
+        if response.candidates:
+            for candidate in response.candidates:
+                messages.append(candidate.content)
+
+
+        if response.usage_metadata == None:
+            raise RuntimeError("API request failed")
+
+        prompt_tokens = response.usage_metadata.prompt_token_count
+        response_tokens = response.usage_metadata.candidates_token_count
+
+        if args.verbose == True:
+            print(f"User prompt: {user_prompt}")
+            print(f"Prompt tokens: {prompt_tokens}")
+            print(f"Response tokens: {response_tokens}")
+        
+        
+        function_responses = []
+        if response.function_calls:
+            for function_call in response.function_calls:
+                #print (f"Calling function: {function_call.name}({function_call.args})")
+                
+                function_call_result = call_function(function_call, args.verbose)
+                if not function_call_result.parts:
+                    raise Exception
+                if not function_call_result.parts[0].function_response:
+                    raise Exception
+                if not function_call_result.parts[0].function_response.response:
+                    raise Exception
+                function_responses.append(function_call_result.parts[0])
+                if args.verbose == True:
+                    print(f"-> {function_call_result.parts[0].function_response.response}")
+                
+            messages.append(types.Content(role="user", parts=function_responses))
+                
+        else:
+            print("Response:")
+            print(response.text)
+            return
+        
+    print("Max loops reached")   
+    sys.exit(1)
     
 
 if __name__ == "__main__":
